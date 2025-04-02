@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FaArrowCircleDown, FaArrowAltCircleRight } from "react-icons/fa";
-import { parseJSONObject } from "parse-json-object";
+
 
 const JsonViewer = ({ data }) => {
     const [expanded, setExpanded] = useState({});
@@ -12,32 +12,65 @@ const JsonViewer = ({ data }) => {
         setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    const countElements = (data) => {
+    const countElements = (value) => {
         let keys = 0, arrays = 0, objects = 0;
 
-        const traverse = (value) => {
-            if (typeof value === 'object' && value !== null) {
-                if (Array.isArray(value)) {
-                    arrays++;
-                    value.forEach(item => traverse(item));
-                } else {
-                    objects++;
-                    keys += Object.keys(value).length;
-                    Object.values(value).forEach(val => traverse(val));
-                }
+        const traverse = (val) => {
+            if (Array.isArray(val)) {
+                arrays++;
+                val.forEach(item => traverse(item));
+            } else if (typeof val === 'object' && val !== null) {
+                objects++;
+                keys += Object.keys(val).length;
+                Object.values(val).forEach(item => traverse(item));
             }
         };
 
-        traverse(data);
+        traverse(value);
         return { keys, arrays, objects };
     };
 
     useEffect(() => {
-        const result = countElements(data);
-        setCounts(result);
+        if (data && typeof data === 'object') {
+            setCounts(countElements(data));
+        }
     }, [data]);
 
     const renderJson = (data, parentKey = '') => {
+        if (Array.isArray(data)) {
+            const isExpanded = expanded[parentKey] ?? true; // Always start with array expanded
+
+            return (
+                <div className="pl-5 mt-1 text-white">
+                    <span
+                        className="flex items-center cursor-pointer"
+                        onClick={() => toggleExpand(parentKey)}
+                    >
+                        {isExpanded ? <FaArrowCircleDown className="mr-1 text-green-300"/> : <FaArrowAltCircleRight className="mr-1 text-amber-300"/>}
+                        <strong className="text-lime-400">[</strong>
+                    </span>
+                    {isExpanded && data.map((item, index) => {
+                        const newKey = `${parentKey}[${index}]`;
+                        const isObject = typeof item === 'object' && item !== null;
+
+                        return (
+                            <div key={newKey} className="pl-5 mt-1 text-white">
+                                <span
+                                    className="flex items-center cursor-pointer"
+                                    onClick={() => isObject && toggleExpand(newKey)}
+                                >
+                                    {isObject && (expanded[newKey] ? <FaArrowCircleDown className="mr-1 text-amber-300"/> : <FaArrowAltCircleRight className="mr-1 text-amber-300"/>)}
+                                    <strong className='text-amber-300'>{`[${index}]`}</strong>: {isObject && !expanded[newKey] ? '{...}' : JSON.stringify(item)}
+                                </span>
+                                {isObject && expanded[newKey] && <div>{renderJson(item, newKey)}</div>}
+                            </div>
+                        );
+                    })}
+                    {isExpanded && <strong className="text-lime-400 pl-5">]</strong>}
+                </div>
+            );
+        }
+
         if (typeof data === 'object' && data !== null) {
             return Object.entries(data).map(([key, value]) => {
                 const newKey = parentKey ? `${parentKey}.${key}` : key;
@@ -58,13 +91,14 @@ const JsonViewer = ({ data }) => {
                 );
             });
         }
+
         return null;
     };
 
     return (
         <div>
             <div className="text-white mb-4 text-lg font-bold">
-                📊 Keys: {counts.keys} | 📁 Arrays: {counts.arrays} | 📦 Objects: {counts.objects}
+                📊 Keys: {counts.keys} | 📁 Arrays: {counts.arrays} | 📦 Objects: {counts.objects} 
             </div>
             {renderJson(data)}
         </div>
@@ -72,26 +106,26 @@ const JsonViewer = ({ data }) => {
 };
 
 export default function Json() {
-    const [jsonInput, setJsonInput] = useState('{"name":"John","age":30,"city":"New York","hobbies":["reading","traveling","gaming"],"isActive":true,"address":{"street":"123 Main St","zip":"10001","locations":[{"lat":40.7128,"long":-74.0060},{"lat":34.0522,"long":-118.2437}]}}');
+    const [jsonInput, setJsonInput] = useState('[{"name":"Alice","age":25},{"name":"Bob","age":30},{"name":"Charlie","age":35}]');
     let parsedObject;
 
     try {
-        parsedObject = parseJSONObject(jsonInput);
+        parsedObject = JSON.parse(jsonInput);
     } catch (error) {
         parsedObject = { error: 'Invalid JSON format' };
     }
 
     return (
-        <div className='flex justify-between items-start h-screen bg-[#2c3e50] text-white'>
-            <div className='border-gray-400 border-2 bg-[#34495e] overflow-scroll'>
+        <div className='flex justify-center items-start h-screen bg-[#2c3e50] text-white w-full'>
+            <div className='border-gray-400 border-2 bg-[#34495e] overflow-scroll w-2/3 '>
                 <textarea 
-                    className='h-screen w-[450px] bg-[#2c3e50] text-white p-4 border-none outline-none' 
+                    className='h-screen w-full bg-[#2c3e50] text-white p-4 border-none outline-none' 
                     value={jsonInput}
                     onChange={(e) => setJsonInput(e.target.value)}
                 ></textarea>
             </div>
        
-            <div className='border-gray-400 border-2 p-4 h-screen w-[800px] overflow-y-auto bg-[#1a5276] text-white'>
+            <div className='border-gray-400 border-2 p-4 h-screen overflow-y-auto w-full bg-[#1a5276] text-white'>
                 <JsonViewer data={parsedObject} />
             </div>
         </div>
